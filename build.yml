@@ -1,0 +1,47 @@
+name: build-exe
+
+# สร้าง control_agent.exe ให้อัตโนมัติทุกครั้งที่อัปเดตโค้ด
+# และกดสร้างเองได้จากแท็บ Actions (ปุ่ม Run workflow)
+on:
+  push:
+    paths:
+      - "control_agent.py"
+      - "requirements.txt"
+      - ".github/workflows/build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: ติดตั้งไลบรารีและ PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: สร้าง .exe ไฟล์เดียว
+        run: >
+          pyinstaller --onefile --name LinkRemote-Agent
+          --console control_agent.py
+
+      - name: อัปโหลดไฟล์ผลลัพธ์ (ดาวน์โหลดจากหน้า Actions ได้)
+        uses: actions/upload-artifact@v4
+        with:
+          name: LinkRemote-Agent
+          path: dist/LinkRemote-Agent.exe
+
+      # แนบ .exe เข้า Release ให้มีลิงก์ดาวน์โหลดถาวร เมื่อ push เป็น tag เช่น v1
+      - name: แนบเข้า Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/LinkRemote-Agent.exe
