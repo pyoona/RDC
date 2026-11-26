@@ -109,6 +109,11 @@
       <select id="monSel" class="hidden" title="หน้าจอที่แชร์"></select>
     </div>
     <div class="muted" id="surfaceNote" style="margin-top:6px"></div>
+    <div id="dlBox" class="hidden" style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px">
+      <div class="muted" style="margin-bottom:8px">ยังควบคุมไม่ได้? ดาวน์โหลดตัวควบคุม เปิดค้างไว้ แล้วกดแชร์ใหม่</div>
+      <a id="dlBtn" href="https://github.com/pyoona/RDC/releases/latest/download/LinkRemote-Agent.exe">
+        <button class="pri">ดาวน์โหลดตัวควบคุม (.exe)</button></a>
+    </div>
   </div>
 </main>
 
@@ -359,6 +364,7 @@ function startClient(adminId){
     $('#agentDot').className = 'dot ' + (agent ? 'ok' : 'bad');
     $('#agentText').textContent = agent ? 'พร้อม' : 'ไม่ได้เปิด — admin ดูได้อย่างเดียว';
     show('#monSel', !!agent && agentMonitors.length > 1);
+    show('#dlBox', !agent); // ยังไม่พบตัวควบคุม → โชว์ปุ่มดาวน์โหลด
     sendStatus();
   }
   function pickMonitor(){
