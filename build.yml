@@ -39,9 +39,11 @@ jobs:
           name: LinkRemote-Agent
           path: dist/LinkRemote-Agent.exe
 
-      # แนบ .exe เข้า Release ให้มีลิงก์ดาวน์โหลดถาวร เมื่อ push เป็น tag เช่น v1
-      - name: แนบเข้า Release
-        if: startsWith(github.ref, 'refs/tags/')
+      # สร้าง/อัปเดต Release ชื่อ latest ทุกครั้ง เพื่อให้มีลิงก์ดาวน์โหลดถาวร
+      # ลิงก์: https://github.com/<user>/<repo>/releases/latest/download/LinkRemote-Agent.exe
+      - name: อัปเดต Release (ลิงก์ดาวน์โหลดถาวร)
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: latest
+          name: ตัวควบคุมล่าสุด
           files: dist/LinkRemote-Agent.exe
