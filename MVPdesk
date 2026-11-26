@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Link Remote</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0e1116;--panel:#171b22;--line:#262c36;--ink:#e8eaed;--mute:#8b93a1;--acc:#2f7bff;--ok:#1fb86a;--bad:#ef4444}
+  *{box-sizing:border-box;min-width:0}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:16px/1.5 "Noto Sans Thai",system-ui,sans-serif}
+  button,input,select{font:inherit;color:inherit;background:#222833;border:1px solid #333b48;border-radius:8px;padding:8px 12px;min-height:40px}
+  button{cursor:pointer}
+  button.pri{background:var(--acc);border-color:var(--acc);font-weight:600}
+  button.big{font-size:18px;padding:12px 22px;min-height:52px}
+  button.on{background:var(--acc);border-color:var(--acc)}
+  button.danger{background:transparent;border-color:var(--bad);color:#fca5a5}
+  button:disabled{opacity:.5;cursor:default}
+  label{display:flex;gap:8px;align-items:center;cursor:pointer}
+  input[type=checkbox]{min-height:0;width:20px;height:20px}
+  .hidden{display:none!important}
+  .muted{color:var(--mute);font-size:14px}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--mute);margin-right:6px}
+  .dot.ok{background:var(--ok)}.dot.bad{background:var(--bad)}
+  .page{max-width:680px;margin:0 auto;padding:clamp(20px,5vw,56px) 18px}
+  .page h1{font-size:clamp(28px,5vw,40px);line-height:1.1;margin:0 0 8px}
+  .lead{color:var(--mute);margin:0 0 28px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .row input[type=text],.row input:not([type]){flex:1 1 240px}
+  #preview{width:100%;border-radius:10px;background:#000;margin-top:14px;max-height:220px}
+  .pulse{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--ok);margin-right:8px;animation:p 1.4s infinite}
+  @keyframes p{50%{opacity:.25}}
+  @media (prefers-reduced-motion:reduce){.pulse{animation:none}}
+
+  /* หน้าจอดู/ควบคุมของ admin */
+  #view{height:100%;display:flex;flex-direction:column}
+  #bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 8px;background:var(--panel);border-bottom:1px solid var(--line);font-size:14px}
+  #bar button,#bar input{min-height:34px;padding:4px 10px;font-size:14px}
+  #bar .sp{flex:1}
+  #stage{flex:1;position:relative;min-height:0;outline:none;background:#000}
+  #remote{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;touch-action:none}
+  #overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;color:var(--mute)}
+  #textbox{width:190px}
+
+  #modal{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;z-index:9;padding:16px}
+  #modal .card{max-width:420px;width:100%}
+  #modal .row{margin-top:16px}
+  #chat{position:fixed;right:12px;bottom:12px;width:min(320px,calc(100vw - 24px));background:var(--panel);border:1px solid var(--line);border-radius:12px;z-index:5;font-size:14px}
+  #chatlog{max-height:180px;overflow:auto;padding:10px 12px}
+  #chatlog div{margin:2px 0}
+  #chatform{display:flex;gap:6px;padding:8px;border-top:1px solid var(--line)}
+  #chatform input{flex:1;min-height:34px;padding:4px 8px}
+  #chatform button{min-height:34px;padding:4px 10px}
+</style>
+</head>
+<body>
+
+<!-- ===================== ADMIN: สร้างลิงก์ ===================== -->
+<main id="admin" class="page hidden">
+  <h1>รีโมทเครื่อง client</h1>
+  <p class="lead">สร้างลิงก์แล้วส่งให้ client คลิก เมื่อ client กดแชร์หน้าจอ ภาพจะขึ้นที่นี่ทันที</p>
+
+  <div class="card" id="aIdle">
+    <div class="muted" style="margin-bottom:6px">ชื่อที่ client จะเห็น</div>
+    <div class="row">
+      <input id="adminName" placeholder="เช่น ฝ่าย IT - สมชาย">
+      <button class="pri" id="createBtn">สร้างลิงก์</button>
+    </div>
+  </div>
+
+  <div class="card hidden" id="aWait">
+    <div class="muted" style="margin-bottom:6px">ส่งลิงก์นี้ให้ client</div>
+    <div class="row">
+      <input id="link" readonly>
+      <button id="copyBtn">คัดลอก</button>
+    </div>
+    <p style="margin:16px 0 0"><span class="pulse"></span><span id="aWaitText">รอ client คลิกลิงก์...</span></p>
+    <p class="muted" style="margin:6px 0 0">ลิงก์ใช้ได้ตราบที่ยังเปิดหน้านี้ไว้ ใช้ได้ครั้งละ 1 เครื่อง</p>
+    <div class="row" style="margin-top:14px"><button class="danger" id="cancelBtn">ยกเลิกลิงก์</button></div>
+  </div>
+</main>
+
+<!-- ===================== CLIENT: คลิกลิงก์แล้วแชร์จอ ===================== -->
+<main id="client" class="page hidden">
+  <h1 id="cTitle">กำลังเชื่อมต่อ...</h1>
+  <p class="lead" id="cLead"></p>
+
+  <div class="card hidden" id="cAsk">
+    <button class="pri big" id="shareBtn">แชร์หน้าจอ</button>
+    <p class="muted" style="margin:14px 0 0">เมื่อ Chrome ถาม ให้เลือก <b>ทั้งหน้าจอ</b> แล้วกด <b>แชร์</b></p>
+    <label style="margin-top:14px"><input type="checkbox" id="allowCtrl" checked> อนุญาตให้ควบคุมเมาส์และคีย์บอร์ด</label>
+  </div>
+
+  <div class="card hidden" id="cLive">
+    <p style="margin:0 0 4px"><span class="pulse"></span><b id="cLiveText">กำลังแชร์หน้าจอ</b></p>
+    <video id="preview" autoplay muted playsinline></video>
+    <div class="row" style="margin-top:14px">
+      <label><input type="checkbox" id="allowCtrl2"> อนุญาตให้ควบคุม</label>
+      <span class="sp" style="flex:1"></span>
+      <button class="danger" id="stopBtn">หยุดแชร์</button>
+    </div>
+  </div>
+
+  <div class="card hidden" id="cAgent">
+    <div class="row">
+      <span><span class="dot" id="agentDot"></span>ตัวควบคุม: <span id="agentText">กำลังค้นหา...</span></span>
+      <select id="monSel" class="hidden" title="หน้าจอที่แชร์"></select>
+    </div>
+    <div class="muted" id="surfaceNote" style="margin-top:6px"></div>
+  </div>
+</main>
+
+<!-- ===================== ADMIN: ดู/ควบคุม ===================== -->
+<div id="view" class="hidden">
+  <div id="bar">
+    <b id="clientName">client</b>
+    <span id="vStatus" class="muted"></span>
+    <button id="ctrlBtn" class="hidden">ควบคุม</button>
+    <button id="rightBtn" class="hidden" title="แตะครั้งถัดไปเป็นคลิกขวา">คลิกขวา</button>
+    <input id="textbox" class="hidden" placeholder="พิมพ์ข้อความแล้วกด Enter">
+    <button id="fsBtn">เต็มจอ</button>
+    <span class="sp"></span>
+    <button id="chatBtn">แชท</button>
+    <button id="endBtn" class="danger">จบการรีโมท</button>
+  </div>
+  <div id="stage" tabindex="0">
+    <video id="remote" autoplay muted playsinline></video>
+    <div id="overlay">กำลังรับภาพ...</div>
+  </div>
+</div>
+
+<div id="modal" class="hidden"><div class="card" id="modalBody"></div></div>
+
+<div id="chat" class="hidden">
+  <div id="chatlog"></div>
+  <form id="chatform"><input id="chatIn" placeholder="พิมพ์ข้อความ..." autocomplete="off"><button>ส่ง</button></form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+{
+// ====== ตั้งค่า ======
+// ถ้าเชื่อมต่อไม่ติดบางเครือข่าย (เช่น เน็ตมือถือ) ให้เพิ่ม TURN server ตรงนี้
+const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  // { urls: 'turn:your.turn.server:3478', username: 'user', credential: 'pass' },
+];
+const AGENT_URL = 'ws://127.0.0.1:8766';
+const PEER_OPTS = { config: { iceServers: ICE_SERVERS }, debug: 1 };
+const INPUT_TYPES = ['mm','md','mu','wh','kd','ku','text','release'];
+
+const $ = s => document.querySelector(s);
+const show = (s, on = true) => $(s).classList.toggle('hidden', !on);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clamp = v => Math.min(1, Math.max(0, v));
+const rid = n => Array.from(crypto.getRandomValues(new Uint8Array(n)), b => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('');
+const store = { get(k){ try { return localStorage.getItem(k) || ''; } catch(_) { return ''; } }, set(k, v){ try { localStorage.setItem(k, v); } catch(_){} } };
+
+function ask(html, buttons){
+  return new Promise(res => {
+    $('#modalBody').innerHTML = html + '<div class="row">' + buttons.map((b,i) => `<button data-i="${i}" class="${b.cls||''}">${esc(b.label)}</button>`).join('') + '</div>';
+    show('#modal');
+    $('#modalBody').querySelectorAll('button').forEach(btn => btn.onclick = () => { show('#modal', false); res(buttons[+btn.dataset.i].value); });
+  });
+}
+let chatSend = () => {};
+function chatAdd(who, text){
+  const d = document.createElement('div');
+  d.innerHTML = `<b>${esc(who)}:</b> ${esc(text)}`;
+  $('#chatlog').appendChild(d); $('#chatlog').scrollTop = 1e9;
+  show('#chat');
+}
+$('#chatform').addEventListener('submit', e => {
+  e.preventDefault(); const s = $('#chatIn').value.trim(); if (!s) return;
+  chatSend(s); chatAdd('ฉัน', s); $('#chatIn').value = '';
+});
+
+const linkId = location.hash.slice(1);
+if (linkId) startClient(linkId); else startAdmin();
+
+// =====================================================================
+// ADMIN — สร้างลิงก์ รอ client แล้วดู/ควบคุม
+// =====================================================================
+function startAdmin(){
+  show('#admin');
+  $('#adminName').value = store.get('lr-admin');
+  let peer = null, conn = null, call = null, canCtrl = false, ctrlOn = true;
+
+  $('#createBtn').onclick = () => {
+    const name = $('#adminName').value.trim().slice(0, 40) || 'Admin';
+    store.set('lr-admin', name);
+    $('#createBtn').disabled = true;
+    peer = new Peer(rid(10), PEER_OPTS);
+    peer.on('open', id => {
+      $('#link').value = location.origin + location.pathname + '#' + id;
+      show('#aIdle', false); show('#aWait');
+      $('#createBtn').disabled = false;
+    });
+    peer.on('disconnected', () => { try { peer.reconnect(); } catch(_){} });
+    peer.on('error', e => { if (e.type !== 'peer-unavailable') $('#aWaitText').textContent = 'มีปัญหาการเชื่อมต่อ: ' + (e.type || e); $('#createBtn').disabled = false; });
+
+    peer.on('connection', c => {
+      if (conn && conn.open){ // มี client อยู่แล้ว
+        c.on('open', () => { c.send({t:'busy'}); setTimeout(() => c.close(), 300); });
+        return;
+      }
+      conn = c;
+      c.on('open', () => { c.send({t:'hello', name}); $('#aWaitText').textContent = 'client เปิดลิงก์แล้ว รอกดแชร์หน้าจอ...'; });
+      c.on('data', m => {
+        if (!m || typeof m !== 'object') return;
+        if (m.t === 'hello') $('#clientName').textContent = String(m.name || 'client').slice(0, 40);
+        else if (m.t === 'status'){ canCtrl = !!m.control; renderCtrl(m.reason || ''); }
+        else if (m.t === 'chat') chatAdd('client', String(m.s || '').slice(0, 1000));
+        else if (m.t === 'stopped') endSession('client หยุดแชร์หน้าจอแล้ว');
+      });
+      c.on('close', () => { if (conn === c) endSession('client ปิดการเชื่อมต่อ'); });
+    });
+
+    peer.on('call', cl => {
+      if (!conn || cl.peer !== conn.peer){ cl.close(); return; }
+      call = cl;
+      cl.answer();
+      cl.on('stream', s => {
+        show('#admin', false); show('#view');
+        $('#remote').srcObject = s; $('#remote').play().catch(() => {});
+        $('#overlay').classList.add('hidden');
+        $('#stage').focus();
+      });
+    });
+  };
+
+  function endSession(msg){
+    try { if (call) call.close(); } catch(_){}
+    try { if (conn) conn.close(); } catch(_){}
+    call = null; conn = null; canCtrl = false;
+    $('#remote').srcObject = null; $('#overlay').classList.remove('hidden');
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    show('#view', false); show('#chat', false); show('#admin');
+    $('#aWaitText').textContent = (msg ? msg + ' — ' : '') + 'ลิงก์เดิมยังใช้ได้ รอ client คลิกลิงก์...';
+  }
+
+  $('#endBtn').onclick = () => { send({t:'end'}); endSession('จบการรีโมทแล้ว'); };
+  $('#cancelBtn').onclick = () => {
+    if (peer) peer.destroy();
+    peer = null; conn = null;
+    show('#aWait', false); show('#aIdle');
+    $('#aWaitText').textContent = 'รอ client คลิกลิงก์...';
+  };
+  $('#copyBtn').onclick = async () => {
+    try { await navigator.clipboard.writeText($('#link').value); $('#copyBtn').textContent = 'คัดลอกแล้ว'; }
+    catch(_) { $('#link').select(); }
+    setTimeout(() => $('#copyBtn').textContent = 'คัดลอก', 1500);
+  };
+
+  // ---------- ดู/ควบคุม ----------
+  const vid = $('#remote'), stage = $('#stage');
+  let pending = null, raf = 0, rightOnce = false, wheelAcc = 0;
+  const downBtn = new Map();
+  const send = o => { if (conn && conn.open) conn.send(o); };
+  const active = () => canCtrl && ctrlOn && conn && conn.open;
+  chatSend = s => send({t:'chat', s});
+
+  function renderCtrl(reason){
+    ['#ctrlBtn','#rightBtn','#textbox'].forEach(s => show(s, canCtrl));
+    $('#ctrlBtn').classList.toggle('on', ctrlOn);
+    $('#vStatus').textContent = canCtrl ? (ctrlOn ? 'กำลังควบคุม' : 'ดูอย่างเดียว (ปิดการควบคุม)') : reason;
+  }
+  function pos(e){
+    const r = vid.getBoundingClientRect(), vw = vid.videoWidth, vh = vid.videoHeight;
+    if (!vw || !vh) return { x: 0, y: 0 };
+    const s = Math.min(r.width / vw, r.height / vh), w = vw * s, h = vh * s;
+    return { x: clamp((e.clientX - r.left - (r.width - w) / 2) / w), y: clamp((e.clientY - r.top - (r.height - h) / 2) / h) };
+  }
+  vid.addEventListener('pointermove', e => {
+    if (!active()) return;
+    pending = pos(e);
+    if (!raf) raf = requestAnimationFrame(() => { raf = 0; if (pending){ send({t:'mm', ...pending}); pending = null; } });
+  });
+  vid.addEventListener('pointerdown', e => {
+    if (!active()) return;
+    e.preventDefault(); stage.focus();
+    try { vid.setPointerCapture(e.pointerId); } catch(_){}
+    let b = e.button;
+    if (rightOnce){ b = 2; rightOnce = false; $('#rightBtn').classList.remove('on'); }
+    downBtn.set(e.pointerId + ':' + e.button, b);
+    send({t:'md', b, ...pos(e)});
+  });
+  function up(e){
+    const k = e.pointerId + ':' + e.button;
+    if (!downBtn.has(k)) return;
+    const b = downBtn.get(k); downBtn.delete(k);
+    send({t:'mu', b, ...pos(e)});
+  }
+  vid.addEventListener('pointerup', up);
+  vid.addEventListener('pointercancel', up);
+  vid.addEventListener('contextmenu', e => e.preventDefault());
+  vid.addEventListener('wheel', e => {
+    if (!active()) return;
+    e.preventDefault();
+    wheelAcc += e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
+    const steps = Math.trunc(wheelAcc / 100);
+    if (steps){ wheelAcc -= steps * 100; send({t:'wh', dx: 0, dy: steps}); }
+  }, { passive: false });
+
+  const keyMsg = (t, e) => ({t, key: e.key, code: e.code, ctrl: e.ctrlKey, alt: e.altKey, meta: e.metaKey, shift: e.shiftKey});
+  stage.addEventListener('keydown', e => { if (!active() || e.isComposing) return; e.preventDefault(); send(keyMsg('kd', e)); });
+  stage.addEventListener('keyup',   e => { if (!active() || e.isComposing) return; e.preventDefault(); send(keyMsg('ku', e)); });
+  window.addEventListener('blur', () => send({t:'release'}));
+
+  $('#textbox').addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.isComposing) return;
+    e.preventDefault();
+    if (active()){
+      if (e.target.value) send({t:'text', s: e.target.value});
+      send({t:'kd', key:'Enter', code:'Enter'}); send({t:'ku', key:'Enter', code:'Enter'});
+    }
+    e.target.value = '';
+  });
+  $('#ctrlBtn').onclick = () => { ctrlOn = !ctrlOn; if (!ctrlOn) send({t:'release'}); renderCtrl(''); stage.focus(); };
+  $('#rightBtn').onclick = () => { rightOnce = !rightOnce; $('#rightBtn').classList.toggle('on', rightOnce); };
+  $('#fsBtn').onclick = async () => {
+    try {
+      if (document.fullscreenElement){ await document.exitFullscreen(); return; }
+      await document.documentElement.requestFullscreen();
+      if (navigator.keyboard && navigator.keyboard.lock) await navigator.keyboard.lock(); // ส่ง Alt+Tab, Esc ไปเครื่อง client ได้
+    } catch(_){}
+    stage.focus();
+  };
+  $('#chatBtn').onclick = () => $('#chat').classList.toggle('hidden');
+}
+
+// =====================================================================
+// CLIENT — คลิกลิงก์ แล้วกดแชร์หน้าจอ
+// =====================================================================
+function startClient(adminId){
+  show('#client');
+  let peer = null, conn = null, call = null, stream = null, adminName = 'Admin';
+  let agent = null, agentMonitors = [], monIndex = 0, isMonitor = false, ended = false;
+  const title = (t, lead = '') => { $('#cTitle').textContent = t; $('#cLead').textContent = lead; };
+  const allowed = () => $('#allowCtrl').checked;
+  const canControl = () => !!(stream && allowed() && agent && isMonitor);
+  const send = o => { if (conn && conn.open) conn.send(o); };
+  chatSend = s => send({t:'chat', s});
+
+  // ---- control_agent.py บนเครื่องนี้ ----
+  function connectAgent(){
+    if (ended) return;
+    let ws;
+    try { ws = new WebSocket(AGENT_URL); } catch(_) { return setTimeout(connectAgent, 3000); }
+    ws.onopen = () => { agent = ws; };
+    ws.onmessage = ev => { const m = JSON.parse(ev.data); if (m.t === 'hello'){ agentMonitors = m.monitors || []; pickMonitor(); renderAgent(); } };
+    ws.onclose = () => { agent = null; renderAgent(); setTimeout(connectAgent, 3000); };
+  }
+  const sendAgent = o => { if (agent && agent.readyState === 1) agent.send(JSON.stringify(o)); };
+  function renderAgent(){
+    $('#agentDot').className = 'dot ' + (agent ? 'ok' : 'bad');
+    $('#agentText').textContent = agent ? 'พร้อม' : 'ไม่ได้เปิด — admin ดูได้อย่างเดียว';
+    show('#monSel', !!agent && agentMonitors.length > 1);
+    sendStatus();
+  }
+  function pickMonitor(){
+    $('#monSel').innerHTML = agentMonitors.map((m,i) => `<option value="${i}">จอ ${i+1} (${m.width}×${m.height})</option>`).join('');
+    if (stream){
+      const s = stream.getVideoTracks()[0].getSettings();
+      const hit = agentMonitors.findIndex(m => m.width === s.width && m.height === s.height);
+      if (hit >= 0) monIndex = hit;
+    }
+    $('#monSel').value = monIndex;
+    sendAgent({t:'mon', index: monIndex});
+  }
+  $('#monSel').onchange = e => { monIndex = +e.target.value; sendAgent({t:'mon', index: monIndex}); };
+
+  function sendStatus(){
+    let reason = '';
+    if (!allowed()) reason = 'client ไม่อนุญาตให้ควบคุม';
+    else if (!isMonitor) reason = 'client แชร์แค่หน้าต่าง/แท็บ จึงควบคุมไม่ได้';
+    else if (!agent) reason = 'client ไม่ได้เปิด control_agent จึงควบคุมไม่ได้';
+    send({t:'status', control: canControl(), reason});
+  }
+  const syncAllow = v => { $('#allowCtrl').checked = v; $('#allowCtrl2').checked = v; if (!v) sendAgent({t:'release'}); sendStatus(); };
+  $('#allowCtrl').onchange = e => syncAllow(e.target.checked);
+  $('#allowCtrl2').onchange = e => syncAllow(e.target.checked);
+
+  // ---- เชื่อมกับ admin ----
+  peer = new Peer(PEER_OPTS);
+  peer.on('open', () => {
+    conn = peer.connect(adminId, { serialization: 'json', reliable: true });
+    conn.on('data', m => {
+      if (!m || typeof m !== 'object') return;
+      if (m.t === 'hello'){
+        adminName = String(m.name || 'Admin').slice(0, 40);
+        title(`${adminName} ขอดูหน้าจอของคุณ`, 'กดปุ่มด้านล่างเพื่อเริ่มแชร์ คุณหยุดได้ทุกเมื่อ');
+        show('#cAsk');
+        send({t:'hello', name: navigator.platform || 'client'});
+      }
+      else if (m.t === 'busy') { title('ลิงก์นี้กำลังถูกใช้งานอยู่', 'admin กำลังดูเครื่องอื่น ลองใหม่อีกครั้งภายหลัง'); finish(false); }
+      else if (m.t === 'end') { title('admin จบการรีโมทแล้ว', 'ปิดหน้านี้ได้เลย'); finish(false); }
+      else if (m.t === 'chat') chatAdd(adminName, String(m.s || '').slice(0, 1000));
+      else if (INPUT_TYPES.includes(m.t) && canControl()) sendAgent(m);
+    });
+    conn.on('close', () => { if (!ended){ title('การเชื่อมต่อสิ้นสุดแล้ว', 'admin ปิดหน้าเว็บหรือยกเลิกลิงก์'); finish(false); } });
+  });
+  peer.on('error', e => {
+    if (e.type === 'peer-unavailable') title('ลิงก์หมดอายุ', 'admin ปิดหน้าเว็บหรือยกเลิกลิงก์แล้ว ขอลิงก์ใหม่จาก admin');
+    else if (!ended) title('เชื่อมต่อไม่สำเร็จ', String(e.type || e));
+  });
+
+  $('#shareBtn').onclick = async () => {
+    try {
+      stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30, cursor: 'always' }, audio: false });
+    } catch(_) { return; }
+    const track = stream.getVideoTracks()[0];
+    try { track.contentHint = 'detail'; } catch(_){}
+    isMonitor = track.getSettings().displaySurface === 'monitor';
+    track.onended = () => stopShare();
+    $('#preview').srcObject = stream;
+    call = peer.call(adminId, stream);
+    $('#allowCtrl2').checked = allowed();
+    show('#cAsk', false); show('#cLive'); show('#cAgent');
+    title(`${adminName} กำลังดูหน้าจอของคุณ`, '');
+    $('#surfaceNote').textContent = isMonitor ? '' : 'คุณแชร์แค่หน้าต่าง/แท็บ admin จะดูได้อย่างเดียว (ถ้าต้องการให้ควบคุม ให้หยุดแล้วแชร์ใหม่โดยเลือก "ทั้งหน้าจอ")';
+    if (agentMonitors.length) pickMonitor();
+    sendStatus();
+  };
+
+  function stopShare(){
+    send({t:'stopped'});
+    title('หยุดแชร์หน้าจอแล้ว', 'ปิดหน้านี้ได้เลย');
+    setTimeout(() => finish(true), 300);
+  }
+  $('#stopBtn').onclick = stopShare;
+
+  function finish(){
+    ended = true;
+    sendAgent({t:'release'});
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    stream = null;
+    try { if (call) call.close(); } catch(_){}
+    try { if (peer) peer.destroy(); } catch(_){}
+    try { if (agent) agent.close(); } catch(_){}
+    ['#cAsk','#cLive','#cAgent','#chat'].forEach(s => show(s, false));
+  }
+
+  connectAgent(); renderAgent();
+}
+}
+</script>
+</body>
+</html>
