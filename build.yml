@@ -1,7 +1,8 @@
 name: build-exe
 
-# สร้าง control_agent.exe ให้อัตโนมัติทุกครั้งที่อัปเดตโค้ด
-# และกดสร้างเองได้จากแท็บ Actions (ปุ่ม Run workflow)
+# สร้าง LinkRemote-Agent.exe อัตโนมัติ และสร้าง Release ชื่อ latest
+# ให้มีลิงก์ดาวน์โหลดถาวร:
+# https://github.com/pyoona/RDC/releases/latest/download/LinkRemote-Agent.exe
 on:
   push:
     paths:
@@ -23,27 +24,23 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: ติดตั้งไลบรารีและ PyInstaller
+      - name: install deps
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt pyinstaller
 
-      - name: สร้าง .exe ไฟล์เดียว
-        run: >
-          pyinstaller --onefile --name LinkRemote-Agent
-          --console control_agent.py
+      - name: build exe
+        run: pyinstaller --onefile --name LinkRemote-Agent --console control_agent.py
 
-      - name: อัปโหลดไฟล์ผลลัพธ์ (ดาวน์โหลดจากหน้า Actions ได้)
+      - name: upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: LinkRemote-Agent
           path: dist/LinkRemote-Agent.exe
 
-      # สร้าง/อัปเดต Release ชื่อ latest ทุกครั้ง เพื่อให้มีลิงก์ดาวน์โหลดถาวร
-      # ลิงก์: https://github.com/<user>/<repo>/releases/latest/download/LinkRemote-Agent.exe
-      - name: อัปเดต Release (ลิงก์ดาวน์โหลดถาวร)
+      - name: release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: ตัวควบคุมล่าสุด
+          name: latest
           files: dist/LinkRemote-Agent.exe
